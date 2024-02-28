@@ -1,4 +1,6 @@
-use rand::{thread_rng, Rng};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use serde::*;
 use std::collections::HashMap;
 use std::option::*;
 
@@ -6,7 +8,7 @@ use std::option::*;
 
 // TODO: Board should not need to be mutable for the users.
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize)]
 pub enum GameResult {
     NotFinished,
     NaughtWin,
@@ -16,21 +18,22 @@ pub enum GameResult {
 
 // TODO: This should be enum.
 const EMPTY: i32 = 0;
-pub const NAUGHT: i32 = 1;
-pub const CROSS: i32 = 2;
+pub const CROSS: i32 = 1;
+pub const NAUGHT: i32 = 2;
 
 const BOARD_DIM: usize = 3;
-const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
+pub const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
 
 #[derive(Debug)]
 pub struct Board {
     state: [i32; BOARD_SIZE],
     win_check_dirs: HashMap<i32, Vec<(i32, i32)>>,
+    rng: StdRng,
 }
 
 #[allow(dead_code)] // TODO: Remove this.
 impl Board {
-    pub fn new(board: Option<Board>) -> Self {
+    pub fn new(board: Option<Board>, seed: Option<u64>) -> Self {
         let state = board.map_or([0; BOARD_SIZE], |b| b.state);
         let win_check_dirs = HashMap::from([
             (0, vec![(1, 1), (1, 0), (0, 1)]),
@@ -40,10 +43,20 @@ impl Board {
             (6, vec![(0, 1)]),
         ]);
 
+        let rng = match seed {
+            Some(s) => StdRng::seed_from_u64(s),
+            None => StdRng::from_rng(rand::thread_rng()).unwrap(),
+        };
+
         Self {
             state,
             win_check_dirs,
+            rng,
         }
+    }
+
+    pub fn get_state(&self) -> [i32; BOARD_SIZE] {
+        self.state
     }
 
     fn hash_value(&self) -> i32 {
@@ -90,7 +103,7 @@ impl Board {
         self.state.iter().filter(|&&x| x == EMPTY).count() as i32
     }
 
-    pub fn random_empty_spot(&self) -> Option<i32> {
+    pub fn random_empty_spot(&mut self) -> Option<i32> {
         if self.num_empty() == 0 {
             return None;
         }
@@ -102,7 +115,7 @@ impl Board {
             .filter_map(|(i, &val)| if val == EMPTY { Some(i) } else { None })
             .collect();
 
-        let index = thread_rng().gen_range(0..empty_cells.len());
+        let index = self.rng.gen_range(0..empty_cells.len());
 
         Some(empty_cells[index] as i32)
     }

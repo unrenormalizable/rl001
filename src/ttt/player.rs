@@ -1,4 +1,4 @@
-use crate::game::board::*;
+use crate::ttt::board::*;
 
 pub trait Player {
     // TODO: Remove mut.

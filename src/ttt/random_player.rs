@@ -1,5 +1,5 @@
-use crate::game::board::*;
-use crate::game::player::*;
+use super::board::*;
+use super::player::*;
 use std::option::*;
 
 pub struct RandomPlayer {
@@ -18,8 +18,8 @@ impl Player for RandomPlayer {
     }
 
     fn make_move(&self, board: &mut Board) -> (GameResult, bool) {
-        let (_, res, finished) =
-            board.make_move(board.random_empty_spot().unwrap(), self.side.unwrap());
+        let pos = board.random_empty_spot().unwrap();
+        let (_, res, finished) = board.make_move(pos, self.side.unwrap());
         (res, finished)
     }
 
