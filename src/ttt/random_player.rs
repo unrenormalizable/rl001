@@ -1,26 +1,37 @@
 use super::board::*;
 use super::player::*;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::option::*;
 
 pub struct RandomPlayer {
-    side: Option<i32>,
+    side: Option<PlayerId>,
+    rng: StdRng,
 }
 
 impl RandomPlayer {
-    pub fn new() -> Self {
-        Self { side: None }
+    pub fn new(seed: Option<u64>) -> Self {
+        let rng = match seed {
+            Some(s) => StdRng::seed_from_u64(s),
+            None => StdRng::from_rng(rand::thread_rng()).unwrap(),
+        };
+
+        Self { side: None, rng }
     }
 }
 
 impl Player for RandomPlayer {
-    fn new_game(&mut self, side: i32) {
+    fn new_game(&mut self, side: PlayerId) {
         self.side = Some(side);
     }
 
-    fn make_move(&self, board: &mut Board) -> (GameResult, bool) {
-        let pos = board.random_empty_spot().unwrap();
-        let (_, res, finished) = board.make_move(pos, self.side.unwrap());
-        (res, finished)
+    fn make_move(&mut self, board: &mut Board) -> Option<GameResult> {
+        let moves = board.get_possible_next_moves();
+        let pos = self.rng.gen_range(0..moves.len());
+
+        let (_, res) = board.make_move(moves[pos], self.side.unwrap());
+
+        res
     }
 
     fn final_result(&self, _result: GameResult) {}

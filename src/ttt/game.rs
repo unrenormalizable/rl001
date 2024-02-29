@@ -2,10 +2,8 @@ use super::board::*;
 use super::player::*;
 use serde::*;
 
-// TODO: collapse finished and gameresult
-
 #[derive(Serialize)]
-pub struct GameState(i32, GameResult, bool, [i32; BOARD_SIZE]);
+pub struct GameState(PlayerId, Option<GameResult>, [Option<PlayerId>; BOARD_SIZE]);
 
 pub fn play_game(
     board: &mut Board,
@@ -13,32 +11,29 @@ pub fn play_game(
     player2: &mut dyn Player,
     callback: &mut impl FnMut(GameState),
 ) -> GameResult {
-    player1.new_game(CROSS);
-    player2.new_game(NAUGHT);
+    player1.new_game(PlayerId::Naught);
+    player2.new_game(PlayerId::Cross);
     board.reset();
 
     let final_result: GameResult;
     loop {
-        let (result, finished) = player1.make_move(board);
-        callback(GameState(CROSS, result, finished, board.get_state()));
+        let result = player1.make_move(board);
+        callback(GameState(PlayerId::Naught, result, board.get_state()));
 
-        if finished {
-            if result == GameResult::Draw {
-                final_result = GameResult::Draw;
-            } else {
-                final_result = GameResult::CrossWin;
+        match result {
+            None => {}
+            Some(r) => {
+                final_result = r;
+                break;
             }
+        }
 
-            break;
-        } else {
-            let (result, finished) = player2.make_move(board);
-            callback(GameState(NAUGHT, result, finished, board.get_state()));
-            if finished {
-                if result == GameResult::Draw {
-                    final_result = GameResult::Draw;
-                } else {
-                    final_result = GameResult::NaughtWin;
-                }
+        let result = player2.make_move(board);
+        callback(GameState(PlayerId::Cross, result, board.get_state()));
+        match result {
+            None => {}
+            Some(r) => {
+                final_result = r;
                 break;
             }
         }
@@ -57,9 +52,10 @@ mod tests {
 
     #[test]
     fn test_games() {
-        let mut board = Board::new(None, Some(2718));
-        let mut p1 = RandomPlayer::new();
-        let mut p2 = RandomPlayer::new();
+        let mut board = Board::new(None);
+
+        let mut p1 = RandomPlayer::new(Some(2718));
+        let mut p2 = RandomPlayer::new(Some(2718));
 
         let mut draw_count = 0;
         let mut cross_count = 0;
@@ -73,7 +69,6 @@ mod tests {
         for _ in 0..20 {
             let result = play_game(&mut board, &mut p1, &mut p2, &mut callback);
             match result {
-                GameResult::NotFinished => panic!("Should not be here!"),
                 GameResult::CrossWin => cross_count += 1,
                 GameResult::NaughtWin => naught_count += 1,
                 GameResult::Draw => draw_count += 1,

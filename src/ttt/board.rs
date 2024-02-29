@@ -1,40 +1,33 @@
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 use serde::*;
 use std::collections::HashMap;
 use std::option::*;
 
-// TODO: get rid of all (as i32) and (as usize)
-
-// TODO: Board should not need to be mutable for the users.
-
 #[derive(Copy, Clone, Debug, PartialEq, Serialize)]
 pub enum GameResult {
-    NotFinished,
     NaughtWin,
     CrossWin,
     Draw,
 }
 
-// TODO: This should be enum.
-const EMPTY: i32 = 0;
-pub const CROSS: i32 = 1;
-pub const NAUGHT: i32 = 2;
-
 const BOARD_DIM: usize = 3;
 pub const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
 
+#[derive(Copy, Clone, Debug, PartialEq, Serialize)]
+pub enum PlayerId {
+    Naught,
+    Cross,
+}
+
 #[derive(Debug)]
 pub struct Board {
-    state: [i32; BOARD_SIZE],
+    state: [Option<PlayerId>; BOARD_SIZE],
     win_check_dirs: HashMap<i32, Vec<(i32, i32)>>,
-    rng: StdRng,
 }
 
 #[allow(dead_code)] // TODO: Remove this.
 impl Board {
-    pub fn new(board: Option<Board>, seed: Option<u64>) -> Self {
-        let state = board.map_or([0; BOARD_SIZE], |b| b.state);
+    pub fn new(board: Option<Board>) -> Self {
+        let state = board.map_or([None; BOARD_SIZE], |b| b.state);
         let win_check_dirs = HashMap::from([
             (0, vec![(1, 1), (1, 0), (0, 1)]),
             (1, vec![(1, 0)]),
@@ -43,47 +36,14 @@ impl Board {
             (6, vec![(0, 1)]),
         ]);
 
-        let rng = match seed {
-            Some(s) => StdRng::seed_from_u64(s),
-            None => StdRng::from_rng(rand::thread_rng()).unwrap(),
-        };
-
         Self {
             state,
             win_check_dirs,
-            rng,
         }
     }
 
-    pub fn get_state(&self) -> [i32; BOARD_SIZE] {
+    pub fn get_state(&self) -> [Option<PlayerId>; BOARD_SIZE] {
         self.state
-    }
-
-    fn hash_value(&self) -> i32 {
-        let mut res = 0;
-
-        for i in 0..self.state.len() {
-            res *= 3;
-            res += self.state[i];
-        }
-
-        res
-    }
-
-    pub fn other_side(side: i32) -> i32 {
-        if side == EMPTY {
-            panic!("EMPTY has no 'other side'")
-        }
-
-        if side == CROSS {
-            return NAUGHT;
-        }
-
-        if side == NAUGHT {
-            return CROSS;
-        }
-
-        panic!("{side} is not a valid side")
     }
 
     fn coord_to_pos(&self, coord: (i32, i32)) -> i32 {
@@ -94,57 +54,55 @@ impl Board {
         (pos / BOARD_DIM as i32, pos % BOARD_DIM as i32)
     }
 
-    // TODO: Remove this.
     pub fn reset(&mut self) {
-        self.state = [0; BOARD_SIZE];
+        self.state = [None; BOARD_SIZE];
     }
 
     fn num_empty(&self) -> i32 {
-        self.state.iter().filter(|&&x| x == EMPTY).count() as i32
+        self.state.iter().filter(|&&x| x.is_none()).count() as i32
     }
 
-    pub fn random_empty_spot(&mut self) -> Option<i32> {
-        if self.num_empty() == 0 {
-            return None;
-        }
-
+    pub fn get_possible_next_moves(&mut self) -> Vec<usize> {
         let empty_cells: Vec<usize> = self
             .state
             .iter()
             .enumerate()
-            .filter_map(|(i, &val)| if val == EMPTY { Some(i) } else { None })
+            .filter_map(|(i, &val)| if val.is_none() { Some(i) } else { None })
             .collect();
 
-        let index = self.rng.gen_range(0..empty_cells.len());
-
-        Some(empty_cells[index] as i32)
+        empty_cells
     }
 
     fn is_legal(&self, pos: i32) -> bool {
-        (0 <= pos && pos < BOARD_SIZE as i32) && (self.state[pos as usize] == EMPTY)
+        (0 <= pos && pos < BOARD_SIZE as i32) && (self.state[pos as usize].is_none())
     }
 
-    pub fn make_move(&mut self, position: i32, side: i32) -> ([i32; BOARD_SIZE], GameResult, bool) {
-        if self.state[position as usize] != EMPTY {
+    pub fn make_move(
+        &mut self,
+        position: usize,
+        side: PlayerId,
+    ) -> ([Option<PlayerId>; BOARD_SIZE], Option<GameResult>) {
+        if self.state[position].is_some() {
             panic!("Invalid move")
         }
 
-        self.state[position as usize] = side;
+        self.state[position] = Some(side);
 
         if self.check_win() {
-            let winner = if side == CROSS {
-                GameResult::CrossWin
-            } else {
+            let winner = if side == PlayerId::Naught {
                 GameResult::NaughtWin
+            } else {
+                GameResult::CrossWin
             };
-            return (self.state, winner, true);
+
+            return (self.state, Some(winner));
         }
 
         if self.num_empty() == 0 {
-            return (self.state, GameResult::Draw, true);
+            return (self.state, Some(GameResult::Draw));
         }
 
-        (self.state, GameResult::NotFinished, false)
+        (self.state, None)
     }
 
     fn apply_dir(&self, pos: i32, direction: (i32, i32)) -> i32 {
@@ -167,7 +125,7 @@ impl Board {
 
     fn check_win_in_dir(&self, pos: i32, direction: (i32, i32)) -> bool {
         let c = self.state[pos as usize];
-        if c == EMPTY {
+        if c.is_none() {
             return false;
         }
 
@@ -185,9 +143,9 @@ impl Board {
         false
     }
 
-    fn who_won(&self) -> i32 {
+    fn who_won(&self) -> Option<PlayerId> {
         for start_pos in &self.win_check_dirs {
-            if self.state[*start_pos.0 as usize] != EMPTY {
+            if self.state[*start_pos.0 as usize].is_some() {
                 for direction in start_pos.1 {
                     let res = self.check_win_in_dir(*start_pos.0, *direction);
                     if res {
@@ -197,12 +155,12 @@ impl Board {
             }
         }
 
-        EMPTY
+        None
     }
 
     fn check_win(&self) -> bool {
         for start_pos in &self.win_check_dirs {
-            if self.state[*start_pos.0 as usize] != EMPTY {
+            if self.state[*start_pos.0 as usize].is_some() {
                 for direction in start_pos.1 {
                     let res = self.check_win_in_dir(*start_pos.0, *direction);
                     if res {
@@ -216,15 +174,13 @@ impl Board {
     }
 
     fn state_to_char(&self, pos: i32) -> String {
-        if (self.state[pos as usize]) == EMPTY {
-            return ' '.to_string();
-        }
+        let ret = match self.state[pos as usize] {
+            None => " ",
+            Some(PlayerId::Naught) => "o",
+            Some(PlayerId::Cross) => "x",
+        };
 
-        if (self.state[pos as usize]) == NAUGHT {
-            return 'o'.to_string();
-        }
-
-        'x'.to_string()
+        ret.to_string()
     }
 }
 
