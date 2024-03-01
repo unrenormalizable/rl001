@@ -16,5 +16,5 @@
 
 ## References
 
-- [A tale about trying to train a machine to play Tic Tac Toe through Reinforcement Learning](https://medium.com/@carsten.friedrich/part-1-computer-tic-tac-toe-basics-35964f92fa03)
+- [A tale about trying to train a machine to play Tic Tac Toe through Reinforcement Learning](https://medium.com/@carsten.friedrich/teaching-a-computer-to-play-tic-tac-toe-88feb838b5e3)
 - [Teaching agents to play Tic-Tac-Toe](https://medium.com/@kaneel.senevirathne/teaching-agents-to-play-tic-tac-toe-using-reinforcement-learning-7a9d4d6ee9b3)

@@ -18,6 +18,17 @@ pub enum PlayerId {
     Cross,
 }
 
+impl ToString for PlayerId {
+    fn to_string(&self) -> String {
+        let res = match self {
+            Self::Naught => "0",
+            Self::Cross => "X",
+        };
+
+        res.to_string()
+    }
+}
+
 #[derive(Debug)]
 pub struct Board {
     state: [Option<PlayerId>; BOARD_SIZE],
@@ -58,6 +69,20 @@ impl Board {
         self.state = [None; BOARD_SIZE];
     }
 
+    pub fn hash_value(&self) -> usize {
+        let mut res = 0;
+        for i in 0..self.state.len() {
+            res *= 3;
+            res += match self.state[i] {
+                None => 0,
+                Some(PlayerId::Naught) => 2,
+                Some(PlayerId::Cross) => 1,
+            }
+        }
+
+        res
+    }
+
     fn num_empty(&self) -> i32 {
         self.state.iter().filter(|&&x| x.is_none()).count() as i32
     }
@@ -73,8 +98,8 @@ impl Board {
         empty_cells
     }
 
-    fn is_legal(&self, pos: i32) -> bool {
-        (0 <= pos && pos < BOARD_SIZE as i32) && (self.state[pos as usize].is_none())
+    pub fn is_legal(&self, pos: usize) -> bool {
+        pos < BOARD_SIZE && self.state[pos].is_none()
     }
 
     pub fn make_move(

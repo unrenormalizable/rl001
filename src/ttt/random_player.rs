@@ -5,10 +5,12 @@ use rand::{Rng, SeedableRng};
 use std::option::*;
 
 pub struct RandomPlayer {
+    desc: String,
     side: Option<PlayerId>,
     rng: StdRng,
 }
 
+#[allow(dead_code)] // TODO: Remove this.
 impl RandomPlayer {
     pub fn new(seed: Option<u64>) -> Self {
         let rng = match seed {
@@ -16,11 +18,19 @@ impl RandomPlayer {
             None => StdRng::from_rng(rand::thread_rng()).unwrap(),
         };
 
-        Self { side: None, rng }
+        Self {
+            desc: "Random".to_string(),
+            side: None,
+            rng,
+        }
     }
 }
 
 impl Player for RandomPlayer {
+    fn desc(&self) -> String {
+        self.desc.clone()
+    }
+
     fn new_game(&mut self, side: PlayerId) {
         self.side = Some(side);
     }
@@ -34,5 +44,5 @@ impl Player for RandomPlayer {
         res
     }
 
-    fn final_result(&self, _result: GameResult) {}
+    fn final_result(&mut self, _result: GameResult) {}
 }
